@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MVB Logística 360 — Calculadora & Rastreamento em tempo real</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --panel:#0b1224; /* deep */
+      --muted:#94a3b8; /* slate-400 */
+      --text:#e2e8f0; /* slate-200 */
+      --brand:#22d3ee; /* cyan-400 */
+      --brand-2:#a78bfa; /* violet-400 */
+      --ok:#22c55e; /* green-500 */
+      --warn:#f59e0b; /* amber-500 */
+      --err:#ef4444; /* red-500 */
+      --shadow: 0 10px 30px rgba(2,8,23,.35);
+      --radius: 18px;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0; background: radial-gradient(1200px 600px at 20% -10%, rgba(34,211,238,.10), transparent),
+                                  radial-gradient(900px 500px at 120% 10%, rgba(167,139,250,.10), transparent),
+                                  var(--bg);
+      color:var(--text); font: 500 16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+    }
+    .wrap{max-width:1100px; margin:40px auto; padding:0 16px;}
+    header{display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;}
+    .brand{display:flex; align-items:center; gap:12px}
+    .logo{width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg, var(--brand), var(--brand-2)); box-shadow: var(--shadow)}
+    h1{font-size: clamp(22px, 3vw, 28px); margin:0}
+    .subtitle{color:var(--muted); font-size:14px}
+
+    .grid{display:grid; grid-template-columns:1.1fr .9fr; gap:18px}
+    @media (max-width:900px){ .grid{grid-template-columns:1fr;}}
+
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)); border:1px solid rgba(148,163,184,.12); border-radius: var(--radius); box-shadow: var(--shadow)}
+    .card h2{margin:0 0 8px 0; font-size:18px}
+    .card .body{padding:18px}
+
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+    .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px}
+    .row + .row, .row3 + .row, .row + .row3{margin-top:12px}
+
+    label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px}
+    input, select{width:100%; box-sizing:border-box; padding:12px 12px; border-radius:12px; border:1px solid rgba(148,163,184,.25); background:#0b1224; color:var(--text); outline: none}
+    input:focus, select:focus{border-color: var(--brand)}
+
+    .result{
+      margin-top:14px; padding:14px; border-radius:12px; background: rgba(34,211,238,.08); border:1px solid rgba(34,211,238,.25);
+      display:grid; grid-template-columns:1fr 1fr; gap:12px
+    }
+    .result strong{font-size:18px}
+
+    .kpis{display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin:18px 0}
+    @media (max-width:700px){ .kpis{grid-template-columns: repeat(2, 1fr);} }
+    .kpi{padding:14px; border-radius:14px; background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)); border:1px solid rgba(148,163,184,.12)}
+    .kpi small{color:var(--muted); font-size:12px}
+    .kpi .val{font-weight:700; font-size:22px}
+
+    .timeline{display:flex; align-items:center; gap:8px; margin-top:8px}
+    .dot{width:12px; height:12px; border-radius:50%; background:#1f2937; border:1px solid rgba(148,163,184,.4)}
+    .dot.active{background:var(--brand)}
+    .bar{flex:1; height:2px; background:rgba(148,163,184,.35)}
+    .bar.active{background: linear-gradient(90deg, var(--brand), var(--brand-2))}
+
+    .footer{color:var(--muted); font-size:12px; text-align:center; margin:28px 0 12px}
+
+    .badge{display:inline-flex; align-items:center; gap:8px; font-size:12px; color:var(--muted)}
+    .pulse{width:8px; height:8px; border-radius:50%; background:var(--ok); box-shadow:0 0 0 0 rgba(34,197,94,.5); animation:pulse 2s infinite}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+
+    .hint{font-size:12px; color:var(--muted); margin-top:6px}
+    .btn{
+      display:inline-block; padding:10px 14px; border-radius:12px; border:1px solid rgba(148,163,184,.18);
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); color:var(--text); text-decoration:none;
+    }
+    .btn:hover{border-color: var(--brand)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Logística Inteligente 360 — MVB</h1>
+          <div class="subtitle">Calculadora de frete e rastreamento em <b>tempo real</b>. Protótipo funcional.</div>
+        </div>
+      </div>
+      <div class="badge"><span class="pulse"></span> Online • Status do sistema nominal</div>
+    </header>
+
+    <!-- KPIs dinâmicos (simulados) -->
+    <section class="kpis">
+      <div class="kpi"><small>Pedidos hoje</small><div class="val" id="kpiHoje">128</div></div>
+      <div class="kpi"><small>Em trânsito</small><div class="val" id="kpiTransito">74</div></div>
+      <div class="kpi"><small>Entregues</small><div class="val" id="kpiEntregues">51</div></div>
+      <div class="kpi"><small>Atrasos</small><div class="val" id="kpiAtrasos">3</div></div>
+    </section>
+
+    <section class="grid">
+      <!-- CALCULADORA -->
+      <div class="card" id="calcCard">
+        <div class="body">
+          <h2>Calculadora logística (tempo real)</h2>
+          <div class="row">
+            <div>
+              <label for="origem">Origem</label>
+              <input id="origem" placeholder="Ex.: São Paulo - SP" />
+            </div>
+            <div>
+              <label for="destino">Destino</label>
+              <input id="destino" placeholder="Ex.: Belo Horizonte - MG" />
+            </div>
+          </div>
+          <div class="row3">
+            <div>
+              <label for="peso">Peso (kg)</label>
+              <input id="peso" type="number" min="0" step="0.1" placeholder="Ex.: 120" />
+            </div>
+            <div>
+              <label for="volume">Volume (m³)</label>
+              <input id="volume" type="number" min="0" step="0.01" placeholder="Ex.: 1.80" />
+            </div>
+            <div>
+              <label for="modal">Modal</label>
+              <select id="modal">
+                <option value="rodoviario">Rodoviário</option>
+                <option value="aereo">Aéreo</option>
+                <option value="maritimo">Marítimo</option>
+              </select>
+            </div>
+          </div>
+          <div class="hint">* Estimativa simulada. Para uso comercial, integre transportadoras/APIs.</div>
+          <div class="result" id="calcOut" hidden>
+            <div>
+              <div>Custo estimado</div>
+              <strong id="outCusto">—</strong>
+              <div class="hint" id="outDetalhe"></div>
+            </div>
+            <div>
+              <div>Prazo estimado</div>
+              <strong id="outPrazo">—</strong>
+              <div class="timeline" aria-hidden="true">
+                <div class="dot" id="t1"></div>
+                <div class="bar" id="b1"></div>
+                <div class="dot" id="t2"></div>
+                <div class="bar" id="b2"></div>
+                <div class="dot" id="t3"></div>
+                <div class="bar" id="b3"></div>
+                <div class="dot" id="t4"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RASTREAMENTO -->
+      <div class="card">
+        <div class="body">
+          <h2>Rastreamento de pedido</h2>
+          <label for="pedido">Número do pedido</label>
+          <input id="pedido" placeholder="Ex.: LI360-2025-000123" />
+          <div class="result" id="trackOut" hidden>
+            <div>
+              <div>Status atual</div>
+              <strong id="statusTxt">—</strong>
+              <div class="hint" id="lastUpd">—</div>
+            </div>
+            <div>
+              <div>Linha do tempo</div>
+              <div class="timeline">
+                <div class="dot" id="r1"></div>
+                <div class="bar" id="rb1"></div>
+                <div class="dot" id="r2"></div>
+                <div class="bar" id="rb2"></div>
+                <div class="dot" id="r3"></div>
+                <div class="bar" id="rb3"></div>
+                <div class="dot" id="r4"></div>
+              </div>
+            </div>
+          </div>
+          <div class="hint" style="margin-top:6px">Exibição em tempo real simulada com base no número do pedido.</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">
+      Protótipo viável básico desenvolvido por <b>Maria Cristina Rocha Garcia</b>. • © <span id="ano"></span> • <a class="btn" id="baixar" href="#">Baixar código (.zip)</a>
+    </div>
+  </div>
+
+  <script>
+    // Utilitários
+    const fmtBRL = v => v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+    const clamp = (n,min,max)=> Math.max(min, Math.min(max, n));
+    const seed = s => {
+      // Gera número pseudo-aleatório determinístico a partir de string
+      let h = 2166136261 >>> 0; for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0;
+    };
+    const seededRange = (s, min, max) => {
+      const x = seed(s) / 2**32; return Math.floor(min + x * (max - min));
+    }
+
+    // CALCULADORA EM TEMPO REAL
+    const origem = document.getElementById('origem');
+    const destino = document.getElementById('destino');
+    const peso = document.getElementById('peso');
+    const volume = document.getElementById('volume');
+    const modal = document.getElementById('modal');
+
+    const calcOut = document.getElementById('calcOut');
+    const outCusto = document.getElementById('outCusto');
+    const outPrazo = document.getElementById('outPrazo');
+    const outDetalhe = document.getElementById('outDetalhe');
+
+    const tlDots = [document.getElementById('t1'), document.getElementById('t2'), document.getElementById('t3'), document.getElementById('t4')];
+    const tlBars = [document.getElementById('b1'), document.getElementById('b2'), document.getElementById('b3')];
+
+    function calcFrete(){
+      const o = origem.value.trim();
+      const d = destino.value.trim();
+      const p = parseFloat(peso.value) || 0;
+      const v = parseFloat(volume.value) || 0;
+      const m = modal.value;
+
+      if(!o || !d || (!p && !v)) { calcOut.hidden = true; return; }
+
+      // Distância simulada determinística 30–1800 km, baseada nas strings
+      const dist = seededRange(o + '>' + d, 30, 1800);
+
+      // Tabela simples por modal
+      const modalCfg = {
+        rodoviario: { base: 45, porKm: 2.6, porKg: 0.35, porM3: 180, vel: 420 }, // km/dia
+        aereo:      { base: 120, porKm: 5.8, porKg: 0.95, porM3: 420, vel: 1600 },
+        maritimo:   { base: 80, porKm: 1.4, porKg: 0.18, porM3: 95, vel: 280 }
+      }[m];
+
+      const custo = modalCfg.base + dist*modalCfg.porKm + p*modalCfg.porKg + v*modalCfg.porM3;
+      const dias = Math.ceil(dist / modalCfg.vel) + (p>800 || v>8 ? 1 : 0);
+
+      outCusto.textContent = fmtBRL(custo);
+      outPrazo.textContent = dias + (dias>1? ' dias':' dia');
+      outDetalhe.textContent = `${dist} km • modal ${m} • peso ${p.toFixed(1)} kg • volume ${v.toFixed(2)} m³`;
+
+      // Atualiza timeline de prazo
+      tlDots.forEach(el=>el.classList.remove('active'));
+      tlBars.forEach(el=>el.classList.remove('active'));
+      const stage = clamp(Math.ceil((3/dias)*3),1,3); // simples, deixa 3 etapas ativas
+      for(let i=0;i<stage;i++){ tlDots[i].classList.add('active'); if(i<tlBars.length) tlBars[i].classList.add('active'); }
+      if(dias<=1){ tlDots[3].classList.add('active'); tlBars[2].classList.add('active'); }
+
+      calcOut.hidden = false;
+    }
+
+    ;['input','change','keyup'].forEach(ev=>{
+      origem.addEventListener(ev, calcFrete);
+      destino.addEventListener(ev, calcFrete);
+      peso.addEventListener(ev, calcFrete);
+      volume.addEventListener(ev, calcFrete);
+      modal.addEventListener(ev, calcFrete);
+    });
+
+    // RASTREAMENTO EM TEMPO REAL (simulado)
+    const pedido = document.getElementById('pedido');
+    const trackOut = document.getElementById('trackOut');
+    const statusTxt = document.getElementById('statusTxt');
+    const lastUpd = document.getElementById('lastUpd');
+
+    const rDots = [document.getElementById('r1'), document.getElementById('r2'), document.getElementById('r3'), document.getElementById('r4')];
+    const rBars = [document.getElementById('rb1'), document.getElementById('rb2'), document.getElementById('rb3')];
+
+    const etapas = ['Pedido registrado','Em centro de distribuição','Em trânsito','Saiu para entrega','Entregue'];
+
+    function track(){
+      const id = pedido.value.trim();
+      if(!id){ trackOut.hidden = true; return; }
+      // Determina etapa a partir da string do pedido + relógio para dar sensação de "vivo"
+      const base = seededRange(id, 1, etapas.length); // 1..5
+      const tick = Math.floor(Date.now()/15000)%etapas.length; // avança a cada 15s
+      const etapa = clamp((base + tick) % etapas.length, 1, etapas.length-1);
+
+      statusTxt.textContent = etapas[etapa];
+      lastUpd.textContent = 'Última atualização: ' + new Date().toLocaleString('pt-BR');
+
+      rDots.forEach(el=>el.classList.remove('active'));
+      rBars.forEach(el=>el.classList.remove('active'));
+      for(let i=0;i<etapa;i++){ rDots[i].classList.add('active'); if(i<rBars.length) rBars[i].classList.add('active'); }
+      if(etapa===etapas.length-1){ rDots[3].classList.add('active'); rBars[2].classList.add('active'); }
+
+      trackOut.hidden = false;
+    }
+
+    pedido.addEventListener('input', track);
+    setInterval(track, 5000); // "tempo real"
+
+    // KPIs dinâmicos (simulados)
+    const kHoje = document.getElementById('kpiHoje');
+    const kTrans = document.getElementById('kpiTransito');
+    const kEnt = document.getElementById('kpiEntregues');
+    const kAtr = document.getElementById('kpiAtrasos');
+
+    function randDelta(n){ return Math.max(0, n + (Math.random() < .6 ? 1 : -1)); }
+    setInterval(()=>{
+      kHoje.textContent = randDelta(parseInt(kHoje.textContent));
+      kTrans.textContent = randDelta(parseInt(kTrans.textContent));
+      kEnt.textContent = randDelta(parseInt(kEnt.textContent));
+      kAtr.textContent = clamp(parseInt(kAtr.textContent) + (Math.random()<.3?-1: (Math.random()<.2?1:0)), 0, 12);
+    }, 4000);
+
+    // Rodapé
+    document.getElementById('ano').textContent = new Date().getFullYear();
+
+    // Baixar código como .zip (gera um blob com este HTML)
+    document.getElementById('baixar').addEventListener('click', (e)=>{
+      e.preventDefault();
+      const blob = new Blob([document.documentElement.outerHTML], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'index.html'; a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
